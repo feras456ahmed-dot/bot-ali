@@ -1,17 +1,16 @@
-// --- خدعة الـ PORT لإرضاء Render ---
-const http = require('http');
-const port = process.env.PORT || 3000;
-http.createServer((req, res) => {
-  res.write('RITZ System is Online ⚔️');
-  res.end();
-}).listen(port);
-// -----------------------------------
-
 const { 
     default: makeWASocket, useMultiFileAuthState, delay, 
     fetchLatestBaileysVersion, DisconnectReason 
 } = require("@whiskeysockets/baileys");
 const pino = require("pino");
+const http = require('http');
+
+// --- 1. خدعة الـ PORT لإبقاء Render مستيقظاً ---
+const port = process.env.PORT || 3000;
+http.createServer((req, res) => {
+  res.write('RITZ-BOT System is Online ⚔️');
+  res.end();
+}).listen(port);
 
 async function startRitzSystem() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_ritz');
@@ -26,51 +25,68 @@ async function startRitzSystem() {
     });
 
     sock.ev.on('creds.update', saveCreds);
+
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
         if (connection === 'close') {
             const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) startRitzSystem();
         } else if (connection === 'open') {
-            console.log("⚔️ تم تفعيل نظام نقابة RITZ بنجاح!");
+            console.log("⚔️ تم تفعيل نظام نقابة RITZ بنجاح على السحاب!");
         }
     });
 
+    // --- 2. محرك الأوامر الذكي بنظام الحماية ---
     sock.ev.on('messages.upsert', async (chatUpdate) => {
         const m = chatUpdate.messages[0];
         if (!m.message || m.key.fromMe) return;
 
         const from = m.key.remoteJid;
+        const sender = m.key.participant || m.key.remoteJid;
         const body = m.message.conversation || m.message.extendedTextMessage?.text || "";
-        const isGroup = from.endsWith('@g.us');
+        
         const prefix = ".";
-        const cmd = body.startsWith(prefix) ? body.slice(prefix.length).trim().split(' ')[0].toLowerCase() : null;
+        if (!body.startsWith(prefix)) return;
 
-        if (!cmd) return;
+        // --- نظام حماية القائد رين (فراس) ---
+        // السطر القادم يضمن أن البوت لا يستجيب إلا لرقمك الشخصي
+        const ownerNumber = "967737266081@s.whatsapp.net";
+        if (sender !== ownerNumber) {
+            return; // تجاهل أي شخص آخر بصمت
+        }
 
-        // --- مصفوفة الأوامر الإدارية (20 أمر) ---
+        const cmd = body.slice(prefix.length).trim().split(' ')[0].toLowerCase();
+
         switch (cmd) {
             case 'اوامر':
-                const menu = `⚔️ *قائمة أوامر RITZ الإدارية* ⚔️\n\n` +
-                             `1. .طرد | 2. .رفع_مشرف | 3. .تنزيل_مشرف\n` +
-                             `4. .قفل | 5. .فتح | 6. .حذف | 7. .منشن\n` +
-                             `8. .اسم | 9. .وصف | 10. .رابط | 11. .تحذير\n` +
-                             `12. .كتم | 13. .الغاء_الكتم | 14. .تصفية\n` +
-                             `15. .تحديث | 16. .اعلان | 17. .حماية\n` +
-                             `18. .المغادرين | 19. .احصائيات | 20. .بوت\n\n` +
-                             `👤 المطور: رين (فراس)`;
+                const menu = `⚔️ *أهلاً بك يا قائد رين (فراس)* ⚔️\n\n` +
+                             `📜 *.اوامر* : عرض هذه القائمة\n` +
+                             `📢 *.منشن* : منشن شامل للمجموعة\n` +
+                             `🚫 *.طرد* : استبعاد (بالرد على الرسالة)\n` +
+                             `🗑️ *.حذف* : مسح رسالة (بالرد عليها)\n` +
+                             `🔗 *.رابط* : رابط المجموعة\n` +
+                             `⚡ *.بوت* : فحص حالة السيرفر\n\n` +
+                             `🛡️ *نظام الحماية:* مفعل (أوامرك فقط)`;
                 await sock.sendMessage(from, { text: menu });
                 break;
 
-            case 'رين':
-                await sock.sendMessage(from, { text: "أهلاً بك يا قائد **رين**. النظام جاهز لتنفيذ أوامرك! ⚔️" });
-                break;
-
             case 'بوت':
-                await sock.sendMessage(from, { text: "⚡ الحالة: متصل بالسحاب\n🔋 السرعة: 0.5ms\n🛡️ النظام: RITZ-V1" });
+                await sock.sendMessage(from, { text: "🚀 الحالة: متصل\n📍 السيرفر: Render Cloud\n⚙️ النظام: RITZ-V1.0" });
                 break;
 
-            // يمكنك إضافة منطق بقية الـ 20 أمراً هنا تدريجياً
+            case 'رين':
+                await sock.sendMessage(from, { text: "نعم يا قائد، أنا في الخدمة! ⚔️🔥" });
+                break;
+
+            case 'منشن':
+                if (from.endsWith('@g.us')) {
+                    const group = await sock.groupMetadata(from);
+                    const mentions = group.participants.map(p => p.id);
+                    let text = "📣 *نداء من القائد رين للجميع:*\n\n";
+                    mentions.forEach(m => text += `@${m.split('@')[0]} `);
+                    await sock.sendMessage(from, { text, mentions });
+                }
+                break;
         }
     });
 }
