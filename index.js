@@ -1,3 +1,12 @@
+// --- خدعة الـ PORT لإرضاء Render ---
+const http = require('http');
+const port = process.env.PORT || 3000;
+http.createServer((req, res) => {
+  res.write('RITZ System is Online ⚔️');
+  res.end();
+}).listen(port);
+// -----------------------------------
+
 const { 
     default: makeWASocket, useMultiFileAuthState, delay, 
     fetchLatestBaileysVersion, DisconnectReason 
